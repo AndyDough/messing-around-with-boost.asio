@@ -1,45 +1,59 @@
-#include <array>
 #include <boost/asio.hpp>
+#include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/system/detail/error_code.hpp>
 #include <boost/system/system_error.hpp>
 #include <exception>
 #include <iostream>
 
-using boost::asio::ip::udp;
+using boost::asio::ip::tcp;
 
 int main(int argc, char *argv[]) {
   try {
     if (argc != 2) {
-      std::cerr << "Usage: client <host>\n";
+      std::cerr << "Usage:: client <host ip>\n";
       return 1;
     }
     boost::asio::io_context io_context;
+    tcp::resolver resolver(io_context);
 
-    udp::resolver resolver(io_context);
-    udp::endpoint reciever_endpoint =
-        *resolver.resolve(udp::v4(), argv[1], "9001").begin();
+    tcp::resolver::results_type endpoints{resolver.resolve(argv[1], "9001")};
 
-    udp::socket socket(io_context);
-    socket.open(udp::v4());
-
-    std::array<char, 1> send_buf = {{0}};
-    socket.send_to(boost::asio::buffer(send_buf), reciever_endpoint);
+    tcp::socket socket(io_context);
+    boost::asio::connect(socket, endpoints);
 
     while (true) {
-      std::array<char, 128> revc_buf;
-      udp::endpoint sender_endpoint;
-      size_t len =
-          socket.receive_from(boost::asio::buffer(revc_buf), sender_endpoint);
+      boost::asio::streambuf message_buf;
+      boost::system::error_code ec;
 
-      std::cout.write(revc_buf.data(), len);
+      boost::asio::read_until(socket, message_buf, "\r\n", ec);
 
-      std::string password;
-      std::cin >> password;
-      password.append("\n");
+      if (ec == boost::asio::error::eof) {
+        break;
+      } else if (ec) {
+        throw boost::system::system_error(ec);
+      }
 
-      socket.send_to(boost::asio::buffer(password.c_str(), password.size()),
-                     reciever_endpoint);
+      std::istream is(&message_buf);
+      std::string message;
+      std::getline(is, message, '\r');
+      std::cout << message << std::endl;
+
+      if (!socket.is_open()) {
+        break;
+      } else {
+
+        std::string password;
+        std::cin >> password;
+        password.append("\r\n");
+
+        boost::asio::write(socket, boost::asio::buffer(password), ec);
+        if (ec == boost::asio::error::eof) {
+          break;
+        } else if (ec) {
+          throw boost::system::system_error(ec);
+        }
+      }
     }
 
   } catch (std::exception &e) {

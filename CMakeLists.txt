@@ -23,6 +23,8 @@ add_executable(BOOST_SERVER src/server.cpp)
 target_link_libraries(BOOST_SERVER PRIVATE Boost::asio Boost::system)
 
 add_compile_options(
+    -g
+    -ggdb
     -Wall
     -Wextra
     -Wpedantic

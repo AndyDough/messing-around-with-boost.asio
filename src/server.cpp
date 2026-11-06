@@ -1,51 +1,71 @@
 #include <boost/asio.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
-#include <cstddef>
+#include <boost/system/detail/error_code.hpp>
 #include <iostream>
 
-using boost::asio::ip::udp;
+using boost::asio::ip::tcp;
 
-std::string make_daytime_string() {
-  using namespace std; // For time_t, time and ctime;
-  time_t now = time(0);
-  return ctime(&now);
+void checkError(boost::system::error_code &ec) {
+  if (ec) {
+    std::cout << ec.what() << '\n';
+  }
 }
-
-std::string ask_for_password() { return "PassWord Plz: "; }
 
 int main() {
   try {
     boost::asio::io_context io_context;
-    udp::socket socket(io_context, udp::endpoint(udp::v4(), 9001));
-    std::string password{"123"};
+    tcp::acceptor acceptor{io_context, tcp::endpoint(tcp::v4(), 9001)};
+    std::string serverPassword{"Ilovenetworking:)"};
 
     while (true) {
-      std::array<char, 1> recv_buf;
-      std::array<char, 20> recv_pass_buf;
-      boost::asio::streambuf sb;
-      udp::endpoint remote_endpoint;
+      tcp::socket socket{io_context};
+      acceptor.accept(socket);
+      int passAttemps{3};
 
-      socket.receive_from(boost::asio::buffer(recv_buf), remote_endpoint);
-      std::string message = ask_for_password();
+      std::string message{"Please provide us a password: \r\n"};
+      boost::system::error_code ec;
 
-      boost::system::error_code ignored_error;
-      socket.send_to(boost::asio::buffer(message), remote_endpoint, 0,
-                     ignored_error);
+      boost::asio::write(socket, boost::asio::buffer(message), ec);
 
-      size_t len = socket.receive_from(boost::asio::buffer(recv_pass_buf),
-                                       remote_endpoint);
+      while (true) {
+        boost::asio::streambuf response;
+        boost::asio::read_until(socket, response, '\n');
 
-      boost::asio::read_until(socket, sb, '\n');
-      std::string recv_password;
-      std::istream is(&sb);
-      is >> recv_password;
-
-      if (password == recv_password) {
-        std::cout << "You have successfully login\n";
+        std::string sResponse;
+        std::istream is(&response);
+        is >> sResponse;
+        if (passAttemps > 0) {
+          if (sResponse != serverPassword) {
+            std::string WPmessage;
+            std::format_to(std::back_inserter(WPmessage),
+                           "Wrong Password, attempt(s) remaining: {}\n",
+                           passAttemps);
+            WPmessage.append(message);
+            boost::asio::write(socket, boost::asio::buffer(WPmessage), ec);
+            checkError(ec);
+            --passAttemps;
+          } else {
+            boost::asio::write(socket, boost::asio::buffer("I'm in\r\n"), ec);
+            checkError(ec);
+            socket.shutdown(boost::asio::socket_base::shutdown_both);
+            socket.close();
+            break;
+          }
+        } else {
+          boost::asio::write(
+              socket, boost::asio::buffer("No more attemps bye bye\r\n"), ec);
+          checkError(ec);
+          socket.shutdown(boost::asio::socket_base::shutdown_both);
+          socket.close();
+          break;
+        }
       }
     }
+
   } catch (std::exception &e) {
-    std::cerr << e.what() << std::endl;
+    std::cerr << e.what() << '\n';
   }
 
   return 0;
