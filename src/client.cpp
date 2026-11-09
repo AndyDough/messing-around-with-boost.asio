@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
     while (true) {
       boost::asio::streambuf message_buf;
       boost::system::error_code ec;
+      std::string endConnection{"I'm in"};
 
       boost::asio::read_until(socket, message_buf, "\r\n", ec);
 
@@ -39,7 +40,9 @@ int main(int argc, char *argv[]) {
       std::getline(is, message, '\r');
       std::cout << message << std::endl;
 
-      if (!socket.is_open()) {
+      if (message == endConnection) { // NOTE: replace true with something that
+                                      // actually confirms
+                                      // you have finished the connection
         break;
       } else {
 
@@ -55,7 +58,6 @@ int main(int argc, char *argv[]) {
         }
       }
     }
-
   } catch (std::exception &e) {
     std::cerr << e.what() << '\n';
   }

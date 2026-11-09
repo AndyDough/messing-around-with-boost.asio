@@ -1,0 +1,28 @@
+{
+  "version": 8,
+  "$schema": "https://cmake.org/cmake/help/latest/_downloads/3e2d73bff478d88a7de0de736ba5e361/schema.json",
+  "configurePresets": [
+    {
+      "name": "ninja-multi",
+      "description": "use Ninja Multi-Configure generator",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_GENERATOR": "Ninja Multi-Config",
+        "CMAKE_VERBOSE_MAKEFILE": "ON"
+      }
+    },
+    {
+      "name": "linux_gcc",
+      "displayName": "Linux GCC",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "inherits": [
+        "ninja-multi"
+      ],
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    }
+  ]
+}

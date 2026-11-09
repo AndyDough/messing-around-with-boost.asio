@@ -47,7 +47,8 @@ int main() {
             checkError(ec);
             --passAttemps;
           } else {
-            boost::asio::write(socket, boost::asio::buffer("I'm in\r\n"), ec);
+            boost::asio::write(socket, boost::asio::buffer("I'm in\r\n"),
+                               ec);
             checkError(ec);
             socket.shutdown(boost::asio::socket_base::shutdown_both);
             socket.close();
