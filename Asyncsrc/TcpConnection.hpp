@@ -38,6 +38,8 @@ public:
                         std::size_t bytesTransfered);
 
   void broadCastMessage();
+
+  void handleWrite();
 };
 
 using Sptr = std::shared_ptr<TcpConnection>;

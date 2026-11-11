@@ -1,6 +1,7 @@
 #pragma once
 #include "TcpConnection.hpp"
 #include "TcpServer.hpp"
+#include <boost/asio/completion_condition.hpp>
 
 Sptr TcpConnection::create(boost::asio::io_context &io_context,
                            TcpServer *server) {
@@ -48,5 +49,11 @@ void TcpConnection::handleReqMessage(const boost::system::error_code &ec,
 
 void TcpConnection::broadCastMessage() {
   for (const auto &e : m_server->getAllClients()) {
+    boost::asio::async_write(
+        e->socket(), boost::asio::buffer(m_data),
+        boost::asio::transfer_exactly(m_header.m_length),
+        std::bind(&TcpConnection::handleWrite, shared_from_this()));
   }
 }
+
+void TcpConnection::handleWrite() {}

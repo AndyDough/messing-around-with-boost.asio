@@ -10,9 +10,6 @@
 #include <boost/system/detail/error_code.hpp>
 #include <iostream>
 
-using boost::asio::ip::tcp;
-using namespace std::placeholders;
-
 // std::array<unsigned char, 8> serialize(const MessageHeader &message) {}
 //
 // MessageHeader deserialize(std::array<unsigned char, 8> &serializedMessage) {}
