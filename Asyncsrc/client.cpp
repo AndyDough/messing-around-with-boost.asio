@@ -1,4 +1,6 @@
+#include "encode.hpp"
 #include <boost/asio.hpp>
+#include <boost/asio/buffer.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/impl/read_until.hpp>
 #include <boost/asio/io_context.hpp>
@@ -7,7 +9,6 @@
 #include <boost/system/system_error.hpp>
 #include <exception>
 #include <iostream>
-#include <streambuf>
 
 using boost::asio::ip::tcp;
 
@@ -29,7 +30,12 @@ int main(int argc, char *argv[]) {
       std::array<unsigned char, 250> streamb;
       boost::system::error_code ec;
 
-      boost::asio::read_(socket, streamb, "\r\n", ec);
+      serialize(streamb, MessageHeader{13, 1});
+      std::memcpy(&streamb[8], "Hello", 5);
+
+      boost::asio::write(socket, boost::asio::const_buffer(&streamb[0], 13),
+                         ec);
+      // boost::asio::write(socket, boost::asio::buffer(&streamb))
       if (ec == boost::asio::error::eof) {
         break;
       } else if (ec) {

@@ -16,10 +16,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(Boost REQUIRED COMPONENTS asio)
 find_package(Boost REQUIRED COMPONENTS system)
 
-add_executable(BOOST_CLIENT src/client.cpp)
+add_executable(BOOST_CLIENT Asyncsrc/client.cpp Asyncsrc/encode.cpp)
 target_link_libraries(BOOST_CLIENT PRIVATE Boost::asio Boost::system)
 
-add_executable(BOOST_SERVER src/server.cpp)
+add_executable(BOOST_SERVER Asyncsrc/server.cpp Asyncsrc/TcpServer.cpp Asyncsrc/TcpConnection.cpp
+    Asyncsrc/encode.cpp)
 target_link_libraries(BOOST_SERVER PRIVATE Boost::asio Boost::system)
 
 add_compile_options(

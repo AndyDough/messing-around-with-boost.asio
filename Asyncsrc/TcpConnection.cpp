@@ -1,8 +1,8 @@
-#pragma once
 #include "TcpConnection.hpp"
 #include "TcpServer.hpp"
 #include "encode.hpp"
 #include <boost/asio/completion_condition.hpp>
+#include <iostream>
 
 Sptr TcpConnection::create(boost::asio::io_context &io_context,
                            TcpServer *server) {
@@ -43,7 +43,24 @@ void TcpConnection::handleHelloFromClient() {
 
 void TcpConnection::handleReqMessage(const boost::system::error_code &ec,
                                      std::size_t bytesTransfered) {
+
+  std::cout << "Recieved this message from Client\n";
+  for (auto e : m_data) {
+    std::cout << std::hex << static_cast<int>(e) << ' ';
+  }
+  std::cout << std::endl;
+
   m_server->getAllClients();
+  for (const auto &e : m_server->getAllClients()) {
+    if (this == e.get()) {
+      continue;
+    }
+    boost::asio::async_write(
+        e->socket(),
+        boost::asio::const_buffer(&m_data[8], m_header.m_length - 8),
+        boost::asio::transfer_exactly(m_header.m_length),
+        std::bind(&TcpConnection::handleWrite, shared_from_this()));
+  }
 }
 
 void TcpConnection::broadCastMessage() {

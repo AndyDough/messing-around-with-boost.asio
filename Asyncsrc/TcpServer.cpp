@@ -1,4 +1,3 @@
-#pragma once
 #include "TcpServer.hpp"
 #include "TcpConnection.hpp"
 #include <boost/asio.hpp>
