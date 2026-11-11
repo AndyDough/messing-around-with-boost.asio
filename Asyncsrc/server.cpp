@@ -10,19 +10,13 @@
 #include <boost/system/detail/error_code.hpp>
 #include <iostream>
 
-// std::array<unsigned char, 8> serialize(const MessageHeader &message) {}
-//
-// MessageHeader deserialize(std::array<unsigned char, 8> &serializedMessage) {}
-//
-
 int main() {
 
   try {
     boost::asio::io_context io_context;
     TcpServer asyncTCP(io_context);
 
-    while (true) {
-    }
+    io_context.run();
 
   } catch (std::exception &e) {
     std::cerr << e.what() << '\n';

@@ -1,11 +1,8 @@
 #pragma once
+#include "messageHeader.hpp"
 #include <boost/asio.hpp>
 using boost::asio::ip::tcp;
 using namespace std::placeholders;
-struct MessageHeader {
-  std::uint32_t m_length;
-  std::uint32_t m_id;
-};
 
 class TcpServer;
 

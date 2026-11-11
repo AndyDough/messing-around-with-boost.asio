@@ -26,17 +26,15 @@ int main(int argc, char *argv[]) {
     boost::asio::connect(socket, endpoints);
 
     while (true) {
-      boost::asio::streambuf streamb;
+      std::array<unsigned char, 250> streamb;
       boost::system::error_code ec;
 
-      boost::asio::read_until(socket, streamb, "\r\n", ec);
+      boost::asio::read_(socket, streamb, "\r\n", ec);
       if (ec == boost::asio::error::eof) {
         break;
       } else if (ec) {
         throw boost::system::system_error(ec);
       }
-
-      
     }
   } catch (std::exception &e) {
     std::cerr << e.what() << '\n';

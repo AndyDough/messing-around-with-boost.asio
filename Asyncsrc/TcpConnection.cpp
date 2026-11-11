@@ -1,6 +1,7 @@
 #pragma once
 #include "TcpConnection.hpp"
 #include "TcpServer.hpp"
+#include "encode.hpp"
 #include <boost/asio/completion_condition.hpp>
 
 Sptr TcpConnection::create(boost::asio::io_context &io_context,
@@ -23,10 +24,8 @@ void TcpConnection::start() {
 void TcpConnection::handleReadMessageHeader(const boost::system::error_code &ec,
                                             std::size_t bytesTransfered) {
   // m_data: first 4 bytes length, next 4 bytes id, the rest datos
-  uint32_t *messageLength{new (&m_data[0]) uint32_t};
-  uint32_t *messageID{new (&m_data[4]) uint32_t};
-  m_header.m_length = *messageLength;
-  m_header.m_id = *messageID;
+  m_header = deserialize(m_data);
+
   switch (m_header.m_id) {
   case 1:
     handleHelloFromClient();
@@ -49,8 +48,12 @@ void TcpConnection::handleReqMessage(const boost::system::error_code &ec,
 
 void TcpConnection::broadCastMessage() {
   for (const auto &e : m_server->getAllClients()) {
+    if (this == e.get()) {
+      continue;
+    }
     boost::asio::async_write(
-        e->socket(), boost::asio::buffer(m_data),
+        e->socket(),
+        boost::asio::const_buffer(&m_data[8], m_header.m_length - 8),
         boost::asio::transfer_exactly(m_header.m_length),
         std::bind(&TcpConnection::handleWrite, shared_from_this()));
   }
