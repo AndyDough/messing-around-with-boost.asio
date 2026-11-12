@@ -1,4 +1,5 @@
 #include "encode.hpp"
+#include "messageHeader.hpp"
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/error.hpp>
@@ -14,11 +15,22 @@
 
 using boost::asio::ip::tcp;
 
+void checkError(const boost::system::error_code &ec) {
+  if (ec == boost::asio::error::eof) {
+    throw boost::system::system_error(ec);
+  } else if (ec) {
+    throw boost::system::system_error(ec);
+  }
+}
+
 class TcpClient : public std::enable_shared_from_this<TcpClient> {
 private:
   boost::asio::io_context &m_IO;
   tcp::socket m_socket;
   boost::system::error_code ec;
+  std::array<unsigned char, 250> m_data;
+  MessageHeader m_header;
+  bool m_connected{false};
 
 public:
   TcpClient(boost::asio::io_context &io_context, std::string_view hostIP)
@@ -31,10 +43,31 @@ public:
                                      std::placeholders::_2));
   }
 
+  void startWrite(std::string_view msg) {
+    serialize(m_data, MessageHeader{13, 1});
+    std::memcpy(&m_data[8], "Hello", 5);
+    boost::asio::async_write(
+        m_socket, boost::asio::const_buffer(&m_data[0], m_header.m_length),
+        boost::asio::transfer_exactly(m_header.m_length),
+        std::bind(&TcpClient::handleWrite, this, std::placeholders::_1,
+                  std::placeholders::_2));
+  }
+
+  void handleWrite(const boost::system::error_code &ec,
+                   std::size_t bytesTransfered) {
+    checkError(ec);
+    std::cout << "I'm writting right now\n";
+  };
+
+  tcp::socket &socket() { return m_socket; }
+
+  bool isConnected() { return m_connected; }
+
 private:
   void onResolve(const boost::system::error_code &ec,
                  tcp::resolver::results_type endpointIterator) {
 
+    checkError(ec);
     boost::asio::async_connect(m_socket, endpointIterator,
                                std::bind(&TcpClient::onConnect, this,
                                          std::placeholders::_1,
@@ -42,7 +75,10 @@ private:
   }
 
   void onConnect(const boost::system::error_code &ec,
-                 const boost::asio::ip::tcp::endpoint &endpoint) {}
+                 const boost::asio::ip::tcp::endpoint &endpoint) {
+    checkError(ec);
+    m_connected = true;
+  }
 };
 
 int main(int argc, char *argv[]) {
@@ -56,20 +92,13 @@ int main(int argc, char *argv[]) {
 
     TcpClient tcpClient(io_context, hostIP);
 
+    auto workGuard = boost::asio::make_work_guard(io_context);
+
     while (true) {
-      std::array<unsigned char, 250> streamb;
-      boost::system::error_code ec;
-
-      // serialize(streamb, MessageHeader{13, 1});
-      // std::memcpy(&streamb[8], "Hello", 5);
-
-      // boost::asio::write(socket, boost::asio::const_buffer(&streamb[0], 13),
-      //                    ec);
-      if (ec == boost::asio::error::eof) {
-        break;
-      } else if (ec) {
-        throw boost::system::system_error(ec);
+      if (tcpClient.isConnected()) {
+        tcpClient.startWrite("Hello");
       }
+      io_context.run_one();
     }
   } catch (std::exception &e) {
     std::cerr << e.what() << '\n';
