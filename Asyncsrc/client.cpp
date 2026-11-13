@@ -3,6 +3,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/error.hpp>
+#include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/impl/read_until.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/streambuf.hpp>
@@ -41,9 +42,12 @@ public:
                            std::bind(&TcpClient::onResolve, this,
                                      std::placeholders::_1,
                                      std::placeholders::_2));
+
+    std::cout << "Finish contructing TcpClient\n";
   }
 
   void startWrite(std::string_view msg) {
+    std::cout << "Start Write is being called\n";
     serialize(m_data, MessageHeader{13, 1});
     std::memcpy(&m_data[8], "Hello", 5);
     boost::asio::async_write(
@@ -66,7 +70,6 @@ public:
 private:
   void onResolve(const boost::system::error_code &ec,
                  tcp::resolver::results_type endpointIterator) {
-
     checkError(ec);
     boost::asio::async_connect(m_socket, endpointIterator,
                                std::bind(&TcpClient::onConnect, this,
@@ -76,6 +79,7 @@ private:
 
   void onConnect(const boost::system::error_code &ec,
                  const boost::asio::ip::tcp::endpoint &endpoint) {
+    std::cout << "onConnect is being called\n";
     checkError(ec);
     m_connected = true;
   }
@@ -90,16 +94,16 @@ int main(int argc, char *argv[]) {
     std::string_view hostIP{argv[1]};
     boost::asio::io_context io_context;
 
+    std::cout << "Before TcpClient is contructed\n";
     TcpClient tcpClient(io_context, hostIP);
+    boost::asio::post(io_context, []() { std::cout << "Test\n"; });
 
-    auto workGuard = boost::asio::make_work_guard(io_context);
+    auto work_guard = boost::asio::make_work_guard(io_context);
 
-    while (true) {
-      if (tcpClient.isConnected()) {
-        tcpClient.startWrite("Hello");
-      }
-      io_context.run_one();
-    }
+    std::cout << "now attempting to run io_context\n";
+    io_context.run();
+    std::cout << "After running io_context" << std::endl;
+
   } catch (std::exception &e) {
     std::cerr << e.what() << '\n';
   }
