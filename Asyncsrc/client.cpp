@@ -20,6 +20,7 @@ using boost::asio::ip::tcp;
 class TcpClient : public std::enable_shared_from_this<TcpClient> {
 private:
   boost::asio::io_context &m_IO;
+  std::string_view m_hostIP;
   tcp::socket m_socket;
   boost::system::error_code ec;
   std::array<unsigned char, 250> m_data;
@@ -27,18 +28,30 @@ private:
   tcp::resolver m_resolver;
   bool m_connected{false};
 
-public:
   TcpClient(boost::asio::io_context &io_context, std::string_view hostIP)
-      : m_IO(io_context), m_socket{io_context}, m_resolver(io_context) {
-
-    m_resolver.async_resolve(hostIP, "9001",
-                             std::bind(&TcpClient::onResolve, this,
-                                       std::placeholders::_1,
-                                       std::placeholders::_2));
+      : m_IO(io_context), m_hostIP{hostIP}, m_socket{io_context},
+        m_resolver(io_context) {
 
     std::cout << "Finish contructing TcpClient\n";
   }
 
+  void start() {
+    m_resolver.async_resolve(
+        m_hostIP, "9001",
+        std::bind(&TcpClient::onResolve, shared_from_this(),
+                  std::placeholders::_1, std::placeholders::_2));
+  }
+
+public:
+  static std::shared_ptr<TcpClient> create(boost::asio::io_context &io_context,
+                                           std::string_view hostIP) {
+    auto tcpClient =
+        std::shared_ptr<TcpClient>(new TcpClient(io_context, hostIP));
+
+    tcpClient->start();
+
+    return tcpClient;
+  }
   void startWrite(std::string_view msg) {
     std::cout << "Start Write is being called\n";
     m_header.m_id = 1;
@@ -48,8 +61,8 @@ public:
     boost::asio::async_write(
         m_socket, boost::asio::const_buffer(&m_data[0], m_header.m_length),
         boost::asio::transfer_exactly(m_header.m_length),
-        std::bind(&TcpClient::handleWrite, this, std::placeholders::_1,
-                  std::placeholders::_2));
+        std::bind(&TcpClient::handleWrite, shared_from_this(),
+                  std::placeholders::_1, std::placeholders::_2));
   }
 
   void handleWrite(const boost::system::error_code &ec,
@@ -68,10 +81,10 @@ private:
   void onResolve(const boost::system::error_code &ec,
                  tcp::resolver::results_type endpointIterator) {
     checkError(ec);
-    boost::asio::async_connect(m_socket, endpointIterator,
-                               std::bind(&TcpClient::onConnect, this,
-                                         std::placeholders::_1,
-                                         std::placeholders::_2));
+    boost::asio::async_connect(
+        m_socket, endpointIterator,
+        std::bind(&TcpClient::onConnect, shared_from_this(),
+                  std::placeholders::_1, std::placeholders::_2));
   }
 
   void onConnect(const boost::system::error_code &ec,
@@ -92,19 +105,22 @@ int main(int argc, char *argv[]) {
     boost::asio::io_context io_context;
 
     std::cout << "Before TcpClient is contructed\n";
-    TcpClient tcpClient(io_context, hostIP);
+    auto tcpClient = TcpClient::create(io_context, hostIP);
+
+    // TcpClient tcpClient(io_context, hostIP);
     boost::asio::post(io_context, []() { std::cout << "Test\n"; });
 
     auto work_guard = boost::asio::make_work_guard(io_context);
 
-    std::cout << "now attempting to run io_context\n";
     while (true) {
-      if (tcpClient.isConnected()) {
-        tcpClient.startWrite("A longer message than usual :)");
+      if (tcpClient->isConnected()) {
+        tcpClient->startWrite("A longer message than usual :)");
       }
+
+      std::cout << "now attempting to run io_context\n";
       io_context.run_one();
+      std::cout << "After running io_context" << std::endl;
     }
-    std::cout << "After running io_context" << std::endl;
 
   } catch (std::exception &e) {
     std::cerr << e.what() << '\n';

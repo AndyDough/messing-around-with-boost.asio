@@ -29,12 +29,12 @@ public:
   void handleReadMessageHeader(const boost::system::error_code &ec,
                                std::size_t bytesTransfered);
 
-  void handleHelloFromClient();
+  void handleMsgFromClient();
 
   void handleReqMessage(const boost::system::error_code &ec,
                         std::size_t bytesTransfered);
 
-  void broadCastMessage();
+  // void broadCastMessage();
 
   void handleWrite();
 };

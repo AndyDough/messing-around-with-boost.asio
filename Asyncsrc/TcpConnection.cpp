@@ -30,13 +30,11 @@ void TcpConnection::handleReadMessageHeader(const boost::system::error_code &ec,
 
   switch (m_header.m_id) {
   case 1:
-    handleHelloFromClient();
-  case 2:
-    broadCastMessage();
+    handleMsgFromClient();
   }
 }
 
-void TcpConnection::handleHelloFromClient() {
+void TcpConnection::handleMsgFromClient() {
   boost::asio::async_read(
       m_socket, boost::asio::buffer(m_data),
       boost::asio::transfer_exactly(m_header.m_length - 8),
@@ -65,17 +63,17 @@ void TcpConnection::handleReqMessage(const boost::system::error_code &ec,
   }
 }
 
-void TcpConnection::broadCastMessage() {
-  for (const auto &e : m_server->getAllClients()) {
-    if (this == e.get()) {
-      continue;
-    }
-    boost::asio::async_write(
-        e->socket(),
-        boost::asio::const_buffer(&m_data[8], m_header.m_length - 8),
-        boost::asio::transfer_exactly(m_header.m_length),
-        std::bind(&TcpConnection::handleWrite, shared_from_this()));
-  }
-}
+// void TcpConnection::broadCastMessage() {
+//   for (const auto &e : m_server->getAllClients()) {
+//     if (this == e.get()) {
+//       continue;
+//     }
+//     boost::asio::async_write(
+//         e->socket(),
+//         boost::asio::const_buffer(&m_data[8], m_header.m_length - 8),
+//         boost::asio::transfer_exactly(m_header.m_length),
+//         std::bind(&TcpConnection::handleWrite, shared_from_this()));
+//   }
+// }
 
 void TcpConnection::handleWrite() {}
