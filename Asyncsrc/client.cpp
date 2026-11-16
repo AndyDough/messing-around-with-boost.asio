@@ -41,10 +41,10 @@ public:
 
   void startWrite(std::string_view msg) {
     std::cout << "Start Write is being called\n";
-    serialize(m_data, MessageHeader{13, 1});
-    std::memcpy(&m_data[8], "Hello", 5);
     m_header.m_id = 1;
-    m_header.m_length = 13;
+    m_header.m_length = 8 + msg.size();
+    serialize(m_data, m_header);
+    std::memcpy(&m_data[8], msg.data(), msg.size());
     boost::asio::async_write(
         m_socket, boost::asio::const_buffer(&m_data[0], m_header.m_length),
         boost::asio::transfer_exactly(m_header.m_length),
@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
     std::cout << "now attempting to run io_context\n";
     while (true) {
       if (tcpClient.isConnected()) {
-        tcpClient.startWrite("Hellow");
+        tcpClient.startWrite("A longer message than usual :)");
       }
       io_context.run_one();
     }
