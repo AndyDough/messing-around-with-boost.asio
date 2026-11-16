@@ -1,5 +1,6 @@
 #include "TcpConnection.hpp"
 #include "TcpServer.hpp"
+#include "checkError.hpp"
 #include "encode.hpp"
 #include <boost/asio/completion_condition.hpp>
 #include <iostream>
@@ -23,6 +24,7 @@ void TcpConnection::start() {
 
 void TcpConnection::handleReadMessageHeader(const boost::system::error_code &ec,
                                             std::size_t bytesTransfered) {
+  checkError(ec);
   // m_data: first 4 bytes length, next 4 bytes id, the rest datos
   m_header = deserialize(m_data);
 
@@ -43,7 +45,7 @@ void TcpConnection::handleHelloFromClient() {
 
 void TcpConnection::handleReqMessage(const boost::system::error_code &ec,
                                      std::size_t bytesTransfered) {
-
+  checkError(ec);
   std::cout << "Recieved this message from Client\n";
   for (auto e : m_data) {
     std::cout << std::hex << static_cast<int>(e) << ' ';

@@ -1,3 +1,4 @@
+#include "checkError.hpp"
 #include "encode.hpp"
 #include "messageHeader.hpp"
 #include <boost/asio.hpp>
@@ -16,14 +17,6 @@
 
 using boost::asio::ip::tcp;
 
-void checkError(const boost::system::error_code &ec) {
-  if (ec == boost::asio::error::eof) {
-    throw boost::system::system_error(ec);
-  } else if (ec) {
-    throw boost::system::system_error(ec);
-  }
-}
-
 class TcpClient : public std::enable_shared_from_this<TcpClient> {
 private:
   boost::asio::io_context &m_IO;
@@ -31,17 +24,17 @@ private:
   boost::system::error_code ec;
   std::array<unsigned char, 250> m_data;
   MessageHeader m_header;
+  tcp::resolver m_resolver;
   bool m_connected{false};
 
 public:
   TcpClient(boost::asio::io_context &io_context, std::string_view hostIP)
-      : m_IO(io_context), m_socket{io_context} {
-    tcp::resolver resolver(io_context);
+      : m_IO(io_context), m_socket{io_context}, m_resolver(io_context) {
 
-    resolver.async_resolve(hostIP, "9001",
-                           std::bind(&TcpClient::onResolve, this,
-                                     std::placeholders::_1,
-                                     std::placeholders::_2));
+    m_resolver.async_resolve(hostIP, "9001",
+                             std::bind(&TcpClient::onResolve, this,
+                                       std::placeholders::_1,
+                                       std::placeholders::_2));
 
     std::cout << "Finish contructing TcpClient\n";
   }
@@ -50,6 +43,8 @@ public:
     std::cout << "Start Write is being called\n";
     serialize(m_data, MessageHeader{13, 1});
     std::memcpy(&m_data[8], "Hello", 5);
+    m_header.m_id = 1;
+    m_header.m_length = 13;
     boost::asio::async_write(
         m_socket, boost::asio::const_buffer(&m_data[0], m_header.m_length),
         boost::asio::transfer_exactly(m_header.m_length),
@@ -59,8 +54,10 @@ public:
 
   void handleWrite(const boost::system::error_code &ec,
                    std::size_t bytesTransfered) {
+    std::cout << "Starting (handleWrite)\n";
     checkError(ec);
-    std::cout << "I'm writting right now\n";
+    std::cout << "I'm writting right now bytesTransfering:" << bytesTransfered
+              << std::endl;
   };
 
   tcp::socket &socket() { return m_socket; }
@@ -101,7 +98,12 @@ int main(int argc, char *argv[]) {
     auto work_guard = boost::asio::make_work_guard(io_context);
 
     std::cout << "now attempting to run io_context\n";
-    io_context.run();
+    while (true) {
+      if (tcpClient.isConnected()) {
+        tcpClient.startWrite("Hellow");
+      }
+      io_context.run_one();
+    }
     std::cout << "After running io_context" << std::endl;
 
   } catch (std::exception &e) {
