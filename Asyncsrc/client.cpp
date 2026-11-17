@@ -24,17 +24,12 @@ private:
   std::string_view m_hostIP;
   tcp::socket m_socket;
   boost::system::error_code ec;
-  std::array<unsigned char, 250> m_data;
-  MessageHeader m_header;
   tcp::resolver m_resolver;
   bool m_connected{false};
 
   TcpClient(boost::asio::io_context &io_context, std::string_view hostIP)
       : m_IO(io_context), m_hostIP{hostIP}, m_socket{io_context},
-        m_resolver(io_context) {
-
-    std::cout << "Finish contructing TcpClient\n";
-  }
+        m_resolver(io_context) {}
 
   void start() {
     m_resolver.async_resolve(
@@ -56,23 +51,27 @@ public:
   }
 
   void startWrite(std::string_view msg) {
-    std::cout << "Start Write is being called\n";
+    // std::cout << "Start Write is being called\n";
+    auto writtingBuffer =
+        std::make_shared<std::vector<unsigned char>>(8 + msg.size());
+
+    MessageHeader m_header;
     m_header.m_id = 1;
     m_header.m_length = 8 + msg.size();
-    serialize(m_data, m_header);
-    std::memcpy(&m_data[8], msg.data(), msg.size());
-    boost::asio::dispatch(m_IO, [&]() {
+
+    serialize(*writtingBuffer, m_header);
+    std::memcpy(&(*writtingBuffer)[8], msg.data(), msg.size());
+    boost::asio::dispatch(m_IO, [self = shared_from_this(), writtingBuffer]() {
       boost::asio::async_write(
-          m_socket, boost::asio::const_buffer(&m_data[0], m_header.m_length),
-          boost::asio::transfer_exactly(m_header.m_length),
-          std::bind(&TcpClient::handleWrite, shared_from_this(),
-                    std::placeholders::_1, std::placeholders::_2));
+          self->socket(), boost::asio::buffer(*writtingBuffer),
+          std::bind(&TcpClient::handleWrite, self, std::placeholders::_1,
+                    std::placeholders::_2));
     });
   }
 
   void handleWrite(const boost::system::error_code &ec,
                    std::size_t bytesTransfered) {
-    std::cout << "Starting (handleWrite)\n";
+    // std::cout << "Starting (handleWrite)\n";
     checkError(ec);
     std::cout << "I'm writting right now bytesTransfering:" << bytesTransfered
               << std::endl;
@@ -94,7 +93,7 @@ private:
 
   void onConnect(const boost::system::error_code &ec,
                  const boost::asio::ip::tcp::endpoint &endpoint) {
-    std::cout << "onConnect is being called\n";
+    // std::cout << "onConnect is being called\n";
     checkError(ec);
     m_connected = true;
   }
@@ -125,9 +124,6 @@ int main(int argc, char *argv[]) {
 
     std::cout << "Before TcpClient is contructed\n";
     auto tcpClient = TcpClient::create(io_context, hostIP);
-
-    // TcpClient tcpClient(io_context, hostIP);
-    // boost::asio::post(io_context, []() { std::cout << "Test\n"; });
 
     std::jthread uiBackground(uiThread, std::ref(*tcpClient.get()));
 
