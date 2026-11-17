@@ -14,6 +14,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <thread>
 
 using boost::asio::ip::tcp;
 
@@ -49,20 +50,24 @@ public:
         std::shared_ptr<TcpClient>(new TcpClient(io_context, hostIP));
 
     tcpClient->start();
+    // tcpClient->startWrite("Hey I'm connected");
 
     return tcpClient;
   }
+
   void startWrite(std::string_view msg) {
     std::cout << "Start Write is being called\n";
     m_header.m_id = 1;
     m_header.m_length = 8 + msg.size();
     serialize(m_data, m_header);
     std::memcpy(&m_data[8], msg.data(), msg.size());
-    boost::asio::async_write(
-        m_socket, boost::asio::const_buffer(&m_data[0], m_header.m_length),
-        boost::asio::transfer_exactly(m_header.m_length),
-        std::bind(&TcpClient::handleWrite, shared_from_this(),
-                  std::placeholders::_1, std::placeholders::_2));
+    boost::asio::dispatch(m_IO, [&]() {
+      boost::asio::async_write(
+          m_socket, boost::asio::const_buffer(&m_data[0], m_header.m_length),
+          boost::asio::transfer_exactly(m_header.m_length),
+          std::bind(&TcpClient::handleWrite, shared_from_this(),
+                    std::placeholders::_1, std::placeholders::_2));
+    });
   }
 
   void handleWrite(const boost::system::error_code &ec,
@@ -95,6 +100,20 @@ private:
   }
 };
 
+void uiThread(TcpClient &client) {
+  std::string msg;
+
+  while (true) {
+    std::cout << "msg (enter 0 to exit): ";
+    std::cin >> msg;
+    if (msg == "0") {
+      break;
+    } else {
+      client.startWrite(msg);
+    }
+  }
+}
+
 int main(int argc, char *argv[]) {
   try {
     if (argc != 2) {
@@ -108,19 +127,13 @@ int main(int argc, char *argv[]) {
     auto tcpClient = TcpClient::create(io_context, hostIP);
 
     // TcpClient tcpClient(io_context, hostIP);
-    boost::asio::post(io_context, []() { std::cout << "Test\n"; });
+    // boost::asio::post(io_context, []() { std::cout << "Test\n"; });
+
+    std::jthread uiBackground(uiThread, std::ref(*tcpClient.get()));
 
     auto work_guard = boost::asio::make_work_guard(io_context);
-
-    while (true) {
-      if (tcpClient->isConnected()) {
-        tcpClient->startWrite("A longer message than usual :)");
-      }
-
-      std::cout << "now attempting to run io_context\n";
-      io_context.run_one();
-      std::cout << "After running io_context" << std::endl;
-    }
+    io_context.run();
+    uiBackground.join();
 
   } catch (std::exception &e) {
     std::cerr << e.what() << '\n';

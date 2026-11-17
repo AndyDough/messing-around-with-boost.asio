@@ -3,6 +3,8 @@
 #include "checkError.hpp"
 #include "encode.hpp"
 #include <boost/asio/completion_condition.hpp>
+#include <boost/system/detail/error_code.hpp>
+#include <functional>
 #include <iostream>
 
 Sptr TcpConnection::create(boost::asio::io_context &io_context,
@@ -16,11 +18,7 @@ void TcpConnection::start() {
   boost::asio::async_read(
       m_socket, boost::asio::buffer(m_data), boost::asio::transfer_exactly(8),
       std::bind(&TcpConnection::handleReadMessageHeader, this, _1, _2));
-
-  // boost::asio::async_write(
-  //     m_socket, boost::asio::buffer(m_messages),
-  //     [this](const boost::system::error_code &ec, size_t) {});
-} // Writing messages back to our clients
+}
 
 void TcpConnection::handleReadMessageHeader(const boost::system::error_code &ec,
                                             std::size_t bytesTransfered) {
@@ -59,7 +57,7 @@ void TcpConnection::handleReqMessage(const boost::system::error_code &ec,
         e->socket(),
         boost::asio::const_buffer(&m_data[8], m_header.m_length - 8),
         boost::asio::transfer_exactly(m_header.m_length),
-        std::bind(&TcpConnection::handleWrite, shared_from_this()));
+        std::bind(&TcpConnection::handleWrite, shared_from_this(), _1, _2));
   }
 }
 
@@ -76,4 +74,9 @@ void TcpConnection::handleReqMessage(const boost::system::error_code &ec,
 //   }
 // }
 
-void TcpConnection::handleWrite() {}
+void TcpConnection::handleWrite(const boost::system::error_code &ec,
+                                std::size_t bytesTransfered) {
+  checkError(ec);
+  std::cout << "Transfering from server to clients:" << bytesTransfered
+            << std::endl;
+}

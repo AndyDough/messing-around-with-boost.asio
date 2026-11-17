@@ -36,7 +36,8 @@ public:
 
   // void broadCastMessage();
 
-  void handleWrite();
+  void handleWrite(const boost::system::error_code &ec,
+                   std::size_t bytesTransfered);
 };
 
 using Sptr = std::shared_ptr<TcpConnection>;
