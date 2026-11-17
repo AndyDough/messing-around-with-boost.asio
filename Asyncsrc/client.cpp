@@ -25,7 +25,6 @@ private:
   tcp::socket m_socket;
   boost::system::error_code ec;
   tcp::resolver m_resolver;
-  bool m_connected{false};
 
   TcpClient(boost::asio::io_context &io_context, std::string_view hostIP)
       : m_IO(io_context), m_hostIP{hostIP}, m_socket{io_context},
@@ -79,7 +78,6 @@ public:
 
   tcp::socket &socket() { return m_socket; }
 
-  bool isConnected() { return m_connected; }
 
 private:
   void onResolve(const boost::system::error_code &ec,
@@ -95,7 +93,6 @@ private:
                  const boost::asio::ip::tcp::endpoint &endpoint) {
     // std::cout << "onConnect is being called\n";
     checkError(ec);
-    m_connected = true;
   }
 };
 
