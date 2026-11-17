@@ -48,6 +48,7 @@ void TcpConnection::handleReqMessage(const boost::system::error_code &ec,
   }
   std::cout << std::endl;
 
+  // BroadCast to all connected clients
   m_server->getAllClients();
   for (const auto &e : m_server->getAllClients()) {
     if (this == e.get()) {
@@ -79,4 +80,5 @@ void TcpConnection::handleWrite(const boost::system::error_code &ec,
   checkError(ec);
   std::cout << "Transfering from server to clients:" << bytesTransfered
             << std::endl;
+  start();
 }
