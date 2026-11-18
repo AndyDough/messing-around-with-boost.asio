@@ -34,7 +34,7 @@ void TcpConnection::handleReadMessageHeader(const boost::system::error_code &ec,
 
 void TcpConnection::handleMsgFromClient() {
   boost::asio::async_read(
-      m_socket, boost::asio::buffer(m_data),
+      m_socket, boost::asio::buffer(&m_data[8], m_header.m_length),
       boost::asio::transfer_exactly(m_header.m_length - 8),
       std::bind(&TcpConnection::handleReqMessage, this, _1, _2));
 }
@@ -44,10 +44,11 @@ void TcpConnection::handleReqMessage(const boost::system::error_code &ec,
   checkError(ec);
   std::cout << "Recieved this message from Client\n";
   for (auto e : m_data) {
-    std::cout << std::hex << static_cast<int>(e) << ' ';
+    std::cout << std::hex << e << ' ';
   }
   std::cout << std::endl;
 
+  serialize(m_data, m_header);
   // BroadCast to all connected clients
   m_server->getAllClients();
   for (const auto &e : m_server->getAllClients()) {
@@ -55,11 +56,12 @@ void TcpConnection::handleReqMessage(const boost::system::error_code &ec,
       continue;
     }
     boost::asio::async_write(
-        e->socket(),
-        boost::asio::const_buffer(&m_data[8], m_header.m_length - 8),
+        e->socket(), boost::asio::buffer(m_data),
         boost::asio::transfer_exactly(m_header.m_length),
         std::bind(&TcpConnection::handleWrite, shared_from_this(), _1, _2));
   }
+
+  start();
 }
 
 // void TcpConnection::broadCastMessage() {
@@ -80,5 +82,4 @@ void TcpConnection::handleWrite(const boost::system::error_code &ec,
   checkError(ec);
   std::cout << "Transfering from server to clients:" << bytesTransfered
             << std::endl;
-  start();
 }

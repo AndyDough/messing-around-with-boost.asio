@@ -3,6 +3,7 @@
 #include "messageHeader.hpp"
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/completion_condition.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/impl/read_until.hpp>
@@ -72,12 +73,12 @@ public:
                    std::size_t bytesTransfered) {
     // std::cout << "Starting (handleWrite)\n";
     checkError(ec);
-    std::cout << "I'm writting right now bytesTransfering:" << bytesTransfered
-              << std::endl;
+    // std::cout << "I'm writting right now bytesTransfering:" <<
+    // bytesTransfered
+    // << std::endl;
   };
 
   tcp::socket &socket() { return m_socket; }
-
 
 private:
   void onResolve(const boost::system::error_code &ec,
@@ -91,8 +92,27 @@ private:
 
   void onConnect(const boost::system::error_code &ec,
                  const boost::asio::ip::tcp::endpoint &endpoint) {
-    // std::cout << "onConnect is being called\n";
     checkError(ec);
+
+    auto readBuffer = std::make_shared<std::vector<unsigned char>>();
+
+    boost::asio::async_read(
+        m_socket, boost::asio::buffer(*readBuffer),
+        [self = shared_from_this(), buffer = readBuffer](
+            const boost::system::error_code ec, std::size_t bytesTransfered) {
+          self->handleRecieveMessage(buffer.get(), ec, bytesTransfered);
+        });
+  }
+
+  void handleRecieveMessage(std::vector<unsigned char> *buffer,
+                            const boost::system::error_code &ec,
+                            std::size_t bytesTransfered) {
+    MessageHeader header{deserialize(buffer)};
+    // std::cout << "Recieved Message from Server\n";
+    for (auto e : *buffer) {
+      std::cout << std::hex << e << ' ';
+    }
+    std::cout << std::endl;
   }
 };
 
@@ -101,11 +121,15 @@ void uiThread(TcpClient &client) {
 
   while (true) {
     std::cout << "msg (enter 0 to exit): ";
-    std::cin >> msg;
-    if (msg == "0") {
-      break;
+    std::getline(std::cin, msg);
+    if (client.socket().is_open()) {
+      if (msg == "0") {
+        break;
+      } else {
+        client.startWrite(msg);
+      }
     } else {
-      client.startWrite(msg);
+      std::cout << "Still Trying to connect to server\n";
     }
   }
 }
