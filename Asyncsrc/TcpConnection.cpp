@@ -2,6 +2,7 @@
 #include "TcpServer.hpp"
 #include "checkError.hpp"
 #include "encode.hpp"
+#include "messageHeader.hpp"
 #include <boost/asio/completion_condition.hpp>
 #include <boost/system/detail/error_code.hpp>
 #include <functional>
@@ -15,40 +16,56 @@ Sptr TcpConnection::create(boost::asio::io_context &io_context,
 tcp::socket &TcpConnection::socket() { return m_socket; }
 
 void TcpConnection::start() {
+  auto readBuffer = std::make_unique<std::vector<unsigned char>>();
+  auto asioBuffer = boost::asio::buffer(*readBuffer);
+
   boost::asio::async_read(
-      m_socket, boost::asio::buffer(m_data), boost::asio::transfer_exactly(8),
-      std::bind(&TcpConnection::handleReadMessageHeader, this, _1, _2));
+      m_socket, asioBuffer, boost::asio::transfer_exactly(8),
+      [self = shared_from_this(),
+       buffer = std::move(readBuffer)](const boost::system::error_code &ec,
+                                       std::size_t bytesTransfered) mutable {
+        self->handleReadMessageHeader(std::move(buffer), ec, bytesTransfered);
+      });
 }
 
-void TcpConnection::handleReadMessageHeader(const boost::system::error_code &ec,
+void TcpConnection::handleReadMessageHeader(uPtrVectorUC readBuffer,
+                                            const boost::system::error_code &ec,
                                             std::size_t bytesTransfered) {
   checkError(ec);
   // m_data: first 4 bytes length, next 4 bytes id, the rest datos
-  m_header = deserialize(m_data);
+  MessageHeader header;
+  header = deserialize(*readBuffer);
 
-  switch (m_header.m_id) {
+  switch (header.m_id) {
   case 1:
-    handleMsgFromClient();
+    handleMsgFromClient(std::move(readBuffer), header);
   }
 }
 
-void TcpConnection::handleMsgFromClient() {
+void TcpConnection::handleMsgFromClient(uPtrVectorUC readBuffer,
+                                        MessageHeader &header) {
   boost::asio::async_read(
-      m_socket, boost::asio::buffer(&m_data[8], m_header.m_length),
-      boost::asio::transfer_exactly(m_header.m_length - 8),
-      std::bind(&TcpConnection::handleReqMessage, this, _1, _2));
+      m_socket, boost::asio::buffer(readBuffer.get()[8], header.m_length),
+      boost::asio::transfer_exactly(header.m_length - 8),
+      [self = shared_from_this(), buffer = std::move(readBuffer),
+       head = header](const boost::system::error_code &ec,
+                      std::size_t bytesTransfered) mutable {
+        self->handleReqMessage(std::move(buffer), head, ec, bytesTransfered);
+      });
 }
 
-void TcpConnection::handleReqMessage(const boost::system::error_code &ec,
+void TcpConnection::handleReqMessage(uPtrVectorUC readBuffer,
+                                     MessageHeader &header,
+                                     const boost::system::error_code &ec,
                                      std::size_t bytesTransfered) {
   checkError(ec);
   std::cout << "Recieved this message from Client\n";
-  for (auto e : m_data) {
+  for (auto e : *readBuffer.get()) {
     std::cout << std::hex << e << ' ';
   }
   std::cout << std::endl;
 
-  serialize(m_data, m_header);
+  serialize(*readBuffer.get(), header);
   // BroadCast to all connected clients
   m_server->getAllClients();
   for (const auto &e : m_server->getAllClients()) {
@@ -56,8 +73,8 @@ void TcpConnection::handleReqMessage(const boost::system::error_code &ec,
       continue;
     }
     boost::asio::async_write(
-        e->socket(), boost::asio::buffer(m_data),
-        boost::asio::transfer_exactly(m_header.m_length),
+        e->socket(), boost::asio::buffer(*readBuffer.get()),
+        boost::asio::transfer_exactly(header.m_length),
         std::bind(&TcpConnection::handleWrite, shared_from_this(), _1, _2));
   }
 
