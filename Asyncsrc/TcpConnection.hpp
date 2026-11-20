@@ -39,7 +39,7 @@ public:
 
   // void broadCastMessage();
 
-  void handleWrite(const boost::system::error_code &ec,
+  void handleWrite(sPtrVectorUC readBuffer, const boost::system::error_code &ec,
                    std::size_t bytesTransfered);
 };
 

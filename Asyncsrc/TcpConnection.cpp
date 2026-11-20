@@ -5,7 +5,6 @@
 #include "messageHeader.hpp"
 #include <boost/asio/completion_condition.hpp>
 #include <boost/system/detail/error_code.hpp>
-#include <functional>
 #include <iostream>
 
 Sptr TcpConnection::create(boost::asio::io_context &io_context,
@@ -49,10 +48,10 @@ void TcpConnection::handleReadMessageHeader(sPtrVectorUC readBuffer,
 void TcpConnection::handleMsgFromClient(sPtrVectorUC readBuffer,
                                         MessageHeader &header) {
   readBuffer->resize(header.m_length); // m_length sizeof(content + header)
-  std::vector<unsigned char> *vecBuff{readBuffer.get()};
-  std::vector<unsigned char> &vecBuffRef = *vecBuff;
-  unsigned char &the8thByte = vecBuffRef[8];
-  unsigned char *the8thBytePtr = &the8thByte;
+  // std::vector<unsigned char> *vecBuff{readBuffer.get()};
+  // std::vector<unsigned char> &vecBuffRef = *vecBuff;
+  // unsigned char &the8thByte = vecBuffRef[8];
+  // unsigned char *the8thBytePtr = &the8thByte;
 
   boost::asio::async_read(
       m_socket, boost::asio::buffer(&((*readBuffer)[8]), header.m_length - 8),
@@ -70,22 +69,26 @@ void TcpConnection::handleReqMessage(sPtrVectorUC readBuffer,
                                      std::size_t bytesTransfered) {
   checkError(ec);
   std::cout << "Recieved this message from Client\n";
-  for (auto e : *readBuffer.get()) {
+  for (auto e : *readBuffer) {
     std::cout << std::hex << e << ' ';
   }
   std::cout << std::endl;
 
-  serialize(*readBuffer.get(), header);
+  serialize(*readBuffer, header);
   // BroadCast to all connected clients
   m_server->getAllClients();
   for (const auto &e : m_server->getAllClients()) {
-    if (this == e.get()) {
-      continue;
-    }
+    // if (this == e.get()) {
+    //   continue;
+    // }
     boost::asio::async_write(
-        e->socket(), boost::asio::buffer(*readBuffer.get()),
+        e->socket(),
+        boost::asio::const_buffer(readBuffer->data(), header.m_length),
         boost::asio::transfer_exactly(header.m_length),
-        std::bind(&TcpConnection::handleWrite, shared_from_this(), _1, _2));
+        [self = shared_from_this(), buffer = readBuffer](
+            const boost::system::error_code &ec, std::size_t bytesTransfered) {
+          self->handleWrite(buffer, ec, bytesTransfered);
+        });
   }
 
   start();
@@ -104,9 +107,10 @@ void TcpConnection::handleReqMessage(sPtrVectorUC readBuffer,
 //   }
 // }
 
-void TcpConnection::handleWrite(const boost::system::error_code &ec,
+void TcpConnection::handleWrite(sPtrVectorUC readBuffer,
+                                const boost::system::error_code &ec,
                                 std::size_t bytesTransfered) {
   checkError(ec);
-  std::cout << "Transfering from server to clients:" << bytesTransfered
-            << std::endl;
+  std::cout << "Transfering from server to clients:" << std::dec
+            << bytesTransfered << std::endl;
 }

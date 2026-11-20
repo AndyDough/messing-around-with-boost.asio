@@ -90,29 +90,42 @@ private:
                   std::placeholders::_1, std::placeholders::_2));
   }
 
+  using sPtrVectorUC = std::shared_ptr<std::vector<unsigned char>>;
   void onConnect(const boost::system::error_code &ec,
                  const boost::asio::ip::tcp::endpoint &endpoint) {
     checkError(ec);
 
     auto readBuffer = std::make_shared<std::vector<unsigned char>>();
+    readBuffer->resize(8);
 
     boost::asio::async_read(
         m_socket, boost::asio::buffer(*readBuffer),
+        boost::asio::transfer_exactly(8),
         [self = shared_from_this(), buffer = readBuffer](
             const boost::system::error_code ec, std::size_t bytesTransfered) {
-          self->handleRecieveMessage(buffer.get(), ec, bytesTransfered);
+          self->handleRecieveMessage(buffer, ec, bytesTransfered);
         });
   }
 
-  void handleRecieveMessage(std::vector<unsigned char> *buffer,
+  void handleRecieveMessage(sPtrVectorUC readBuffer,
                             const boost::system::error_code &ec,
                             std::size_t bytesTransfered) {
-    MessageHeader header{deserialize(buffer)};
-    // std::cout << "Recieved Message from Server\n";
-    for (auto e : *buffer) {
-      std::cout << std::hex << e << ' ';
-    }
-    std::cout << std::endl;
+    MessageHeader header{deserialize(*readBuffer)};
+    readBuffer->resize(header.m_length);
+
+    boost::asio::async_read(
+        m_socket, boost::asio::buffer(&((*readBuffer)[8]), header.m_length - 8),
+        boost::asio::transfer_exactly(header.m_length - 8),
+        [self = shared_from_this(), buffer = readBuffer](
+            const boost::system::error_code &ec, std::size_t bytesTransfered) {
+          checkError(ec);
+
+          std::cout << "Recieved this message from Client\n";
+          for (auto e : *buffer) {
+            std::cout << std::hex << e << ' ';
+          }
+          std::cout << std::endl;
+        });
   }
 };
 
