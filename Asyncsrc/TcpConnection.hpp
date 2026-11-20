@@ -26,14 +26,14 @@ public:
 
   void start(); // Writing messages back to our clients
 
-  using uPtrVectorUC = std::unique_ptr<std::vector<unsigned char>>;
-  void handleReadMessageHeader(uPtrVectorUC readBuffer,
+  using sPtrVectorUC = std::shared_ptr<std::vector<unsigned char>>;
+  void handleReadMessageHeader(sPtrVectorUC readBuffer,
                                const boost::system::error_code &ec,
                                std::size_t bytesTransfered);
 
-  void handleMsgFromClient(uPtrVectorUC readBuffer, MessageHeader &header);
+  void handleMsgFromClient(sPtrVectorUC readBuffer, MessageHeader &header);
 
-  void handleReqMessage(uPtrVectorUC readBuffer, MessageHeader &header,
+  void handleReqMessage(sPtrVectorUC readBuffer, MessageHeader &header,
                         const boost::system::error_code &ec,
                         std::size_t bytesTransfered);
 

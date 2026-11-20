@@ -16,45 +16,55 @@ Sptr TcpConnection::create(boost::asio::io_context &io_context,
 tcp::socket &TcpConnection::socket() { return m_socket; }
 
 void TcpConnection::start() {
-  auto readBuffer = std::make_unique<std::vector<unsigned char>>();
-  auto asioBuffer = boost::asio::buffer(*readBuffer);
+  auto readBuffer = std::make_shared<std::vector<unsigned char>>();
+  readBuffer->resize(8);
 
-  boost::asio::async_read(
-      m_socket, asioBuffer, boost::asio::transfer_exactly(8),
-      [self = shared_from_this(),
-       buffer = std::move(readBuffer)](const boost::system::error_code &ec,
-                                       std::size_t bytesTransfered) mutable {
-        self->handleReadMessageHeader(std::move(buffer), ec, bytesTransfered);
-      });
+  std::cout << readBuffer.get() << std::endl;
+  boost::asio::async_read(m_socket, boost::asio::buffer(*readBuffer),
+                          boost::asio::transfer_exactly(8),
+                          [self = shared_from_this(), buffer = readBuffer](
+                              const boost::system::error_code &ec,
+                              std::size_t bytesTransfered) mutable {
+                            std::cout << buffer.get() << std::endl;
+                            self->handleReadMessageHeader(buffer, ec,
+                                                          bytesTransfered);
+                          });
 }
 
-void TcpConnection::handleReadMessageHeader(uPtrVectorUC readBuffer,
+void TcpConnection::handleReadMessageHeader(sPtrVectorUC readBuffer,
                                             const boost::system::error_code &ec,
                                             std::size_t bytesTransfered) {
   checkError(ec);
+  std::cout << readBuffer.get() << std::endl;
   // m_data: first 4 bytes length, next 4 bytes id, the rest datos
   MessageHeader header;
   header = deserialize(*readBuffer);
 
   switch (header.m_id) {
   case 1:
-    handleMsgFromClient(std::move(readBuffer), header);
+    handleMsgFromClient(readBuffer, header);
   }
 }
 
-void TcpConnection::handleMsgFromClient(uPtrVectorUC readBuffer,
+void TcpConnection::handleMsgFromClient(sPtrVectorUC readBuffer,
                                         MessageHeader &header) {
+  readBuffer->resize(header.m_length); // m_length sizeof(content + header)
+  std::vector<unsigned char> *vecBuff{readBuffer.get()};
+  std::vector<unsigned char> &vecBuffRef = *vecBuff;
+  unsigned char &the8thByte = vecBuffRef[8];
+  unsigned char *the8thBytePtr = &the8thByte;
+
   boost::asio::async_read(
-      m_socket, boost::asio::buffer(readBuffer.get()[8], header.m_length),
+      m_socket, boost::asio::buffer(&((*readBuffer)[8]), header.m_length - 8),
       boost::asio::transfer_exactly(header.m_length - 8),
-      [self = shared_from_this(), buffer = std::move(readBuffer),
+      [self = shared_from_this(), buffer = readBuffer,
        head = header](const boost::system::error_code &ec,
                       std::size_t bytesTransfered) mutable {
-        self->handleReqMessage(std::move(buffer), head, ec, bytesTransfered);
+        self->handleReqMessage(buffer, head, ec, bytesTransfered);
       });
 }
 
-void TcpConnection::handleReqMessage(uPtrVectorUC readBuffer,
+void TcpConnection::handleReqMessage(sPtrVectorUC readBuffer,
                                      MessageHeader &header,
                                      const boost::system::error_code &ec,
                                      std::size_t bytesTransfered) {
