@@ -94,6 +94,10 @@ private:
   void onConnect(const boost::system::error_code &ec,
                  const boost::asio::ip::tcp::endpoint &endpoint) {
     checkError(ec);
+    onRecieveMessageHeader();
+  }
+
+  void onRecieveMessageHeader() {
 
     auto readBuffer = std::make_shared<std::vector<unsigned char>>();
     readBuffer->resize(8);
@@ -126,6 +130,8 @@ private:
           }
           std::cout << std::endl;
         });
+
+    onRecieveMessageHeader();
   }
 };
 

@@ -78,9 +78,9 @@ void TcpConnection::handleReqMessage(sPtrVectorUC readBuffer,
   // BroadCast to all connected clients
   m_server->getAllClients();
   for (const auto &e : m_server->getAllClients()) {
-    // if (this == e.get()) {
-    //   continue;
-    // }
+    if (this == e.get()) {
+      continue;
+    }
     boost::asio::async_write(
         e->socket(),
         boost::asio::const_buffer(readBuffer->data(), header.m_length),
@@ -88,6 +88,12 @@ void TcpConnection::handleReqMessage(sPtrVectorUC readBuffer,
         [self = shared_from_this(), buffer = readBuffer](
             const boost::system::error_code &ec, std::size_t bytesTransfered) {
           self->handleWrite(buffer, ec, bytesTransfered);
+          std::cout
+              << "Buffer that is being broadcasted to all connected Clients:";
+          for (auto e : *buffer) {
+            std::cout << std::hex << e << ' ';
+          }
+          std::cout << std::endl;
         });
   }
 
