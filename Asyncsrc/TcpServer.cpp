@@ -7,6 +7,15 @@ const std::vector<std::shared_ptr<TcpConnection>> &TcpServer::getAllClients() {
   return m_connectedClients;
 }
 
+void TcpServer::handleDisconnect(std::shared_ptr<TcpConnection> &client) {
+  auto it{
+      std::find(m_connectedClients.begin(), m_connectedClients.end(), client)};
+
+  if (it != m_connectedClients.end()) {
+    m_connectedClients.erase(it);
+  }
+}
+
 void TcpServer::startAccept() {
   TcpConnection::Sptr newConnection{TcpConnection::create(m_IO, this)};
 

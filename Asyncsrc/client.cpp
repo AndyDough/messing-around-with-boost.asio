@@ -50,32 +50,42 @@ public:
     return tcpClient;
   }
 
-  void startWrite(std::string_view msg) {
+  void disconnect() {
+    std::string_view goodByeMsg{"bye"};
+    startWrite(goodByeMsg, 3);
+  }
+
+  void startWrite(std::string_view msg, int messageID) {
     // std::cout << "Start Write is being called\n";
     auto writtingBuffer =
         std::make_shared<std::vector<unsigned char>>(8 + msg.size());
 
     MessageHeader m_header;
-    m_header.m_id = 1;
+    m_header.m_id = messageID;
     m_header.m_length = 8 + msg.size();
 
     serialize(*writtingBuffer, m_header);
     std::memcpy(&(*writtingBuffer)[8], msg.data(), msg.size());
-    boost::asio::dispatch(m_IO, [self = shared_from_this(), writtingBuffer]() {
-      boost::asio::async_write(
-          self->socket(), boost::asio::buffer(*writtingBuffer),
-          std::bind(&TcpClient::handleWrite, self, std::placeholders::_1,
-                    std::placeholders::_2));
-    });
+
+    boost::asio::dispatch(
+        m_IO, [self = shared_from_this(), writtingBuffer, m_header]() {
+          boost::asio::async_write(
+              self->socket(), boost::asio::buffer(*writtingBuffer),
+              [iself = self, buffer = writtingBuffer,
+               header = m_header](const boost::system::error_code &ec,
+                                  std::size_t bytesTransfered) {
+                iself->handleWrite(ec, bytesTransfered, header);
+              });
+        });
   }
 
   void handleWrite(const boost::system::error_code &ec,
-                   std::size_t bytesTransfered) {
+                   std::size_t bytesTransfered, MessageHeader header) {
     // std::cout << "Starting (handleWrite)\n";
     checkError(ec);
-    // std::cout << "I'm writting right now bytesTransfering:" <<
-    // bytesTransfered
-    // << std::endl;
+    if (header.m_id == 3) {
+      m_IO.stop();
+    }
   };
 
   tcp::socket &socket() { return m_socket; }
@@ -94,10 +104,10 @@ private:
   void onConnect(const boost::system::error_code &ec,
                  const boost::asio::ip::tcp::endpoint &endpoint) {
     checkError(ec);
-    onRecieveMessageHeader();
+    readMessageHeader();
   }
 
-  void onRecieveMessageHeader() {
+  void readMessageHeader() {
 
     auto readBuffer = std::make_shared<std::vector<unsigned char>>();
     readBuffer->resize(8);
@@ -114,6 +124,7 @@ private:
   void handleRecieveMessage(sPtrVectorUC readBuffer,
                             const boost::system::error_code &ec,
                             std::size_t bytesTransfered) {
+    checkError(ec);
     MessageHeader header{deserialize(*readBuffer)};
     readBuffer->resize(header.m_length);
 
@@ -131,7 +142,7 @@ private:
           std::cout << std::endl;
         });
 
-    onRecieveMessageHeader();
+    readMessageHeader();
   }
 };
 
@@ -143,9 +154,10 @@ void uiThread(TcpClient &client) {
     std::getline(std::cin, msg);
     if (client.socket().is_open()) {
       if (msg == "0") {
+        client.disconnect();
         break;
       } else {
-        client.startWrite(msg);
+        client.startWrite(msg, 1);
       }
     } else {
       std::cout << "Still Trying to connect to server\n";
@@ -162,7 +174,7 @@ int main(int argc, char *argv[]) {
     std::string_view hostIP{argv[1]};
     boost::asio::io_context io_context;
 
-    std::cout << "Before TcpClient is contructed\n";
+    // std::cout << "Before TcpClient is contructed\n";
     auto tcpClient = TcpClient::create(io_context, hostIP);
 
     std::jthread uiBackground(uiThread, std::ref(*tcpClient.get()));

@@ -42,7 +42,17 @@ void TcpConnection::handleReadMessageHeader(sPtrVectorUC readBuffer,
   switch (header.m_id) {
   case 1:
     handleMsgFromClient(readBuffer, header);
+    break;
+  case 3:
+    handleDisconnectionFromClient(readBuffer, header);
+    break;
   }
+}
+
+void TcpConnection::handleDisconnectionFromClient(sPtrVectorUC readBuffer,
+                                                  MessageHeader &header) {
+  auto sPtr = shared_from_this();
+  m_server->handleDisconnect(sPtr);
 }
 
 void TcpConnection::handleMsgFromClient(sPtrVectorUC readBuffer,

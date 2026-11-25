@@ -33,6 +33,9 @@ public:
 
   void handleMsgFromClient(sPtrVectorUC readBuffer, MessageHeader &header);
 
+  void handleDisconnectionFromClient(sPtrVectorUC readBuffer,
+                                     MessageHeader &header);
+
   void handleReqMessage(sPtrVectorUC readBuffer, MessageHeader &header,
                         const boost::system::error_code &ec,
                         std::size_t bytesTransfered);
