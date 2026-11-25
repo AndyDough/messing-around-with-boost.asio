@@ -7,7 +7,7 @@ const std::vector<std::shared_ptr<TcpConnection>> &TcpServer::getAllClients() {
   return m_connectedClients;
 }
 
-void TcpServer::handleDisconnect(std::shared_ptr<TcpConnection> &client) {
+void TcpServer::handleDisconnect(std::shared_ptr<TcpConnection> client) {
   auto it{
       std::find(m_connectedClients.begin(), m_connectedClients.end(), client)};
 

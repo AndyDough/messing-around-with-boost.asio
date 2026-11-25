@@ -51,8 +51,7 @@ void TcpConnection::handleReadMessageHeader(sPtrVectorUC readBuffer,
 
 void TcpConnection::handleDisconnectionFromClient(sPtrVectorUC readBuffer,
                                                   MessageHeader &header) {
-  auto sPtr = shared_from_this();
-  m_server->handleDisconnect(sPtr);
+  m_server->handleDisconnect(shared_from_this());
 }
 
 void TcpConnection::handleMsgFromClient(sPtrVectorUC readBuffer,
@@ -71,6 +70,10 @@ void TcpConnection::handleMsgFromClient(sPtrVectorUC readBuffer,
                       std::size_t bytesTransfered) mutable {
         self->handleReqMessage(buffer, head, ec, bytesTransfered);
       });
+}
+
+void TcpConnection::unexpectedDisconnect() {
+  m_server->handleDisconnect(shared_from_this());
 }
 
 void TcpConnection::handleReqMessage(sPtrVectorUC readBuffer,

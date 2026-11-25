@@ -17,7 +17,7 @@ public:
 
   const std::vector<std::shared_ptr<TcpConnection>> &getAllClients();
 
-  void handleDisconnect(std::shared_ptr<TcpConnection> &client);
+  void handleDisconnect(std::shared_ptr<TcpConnection> client);
 
 private:
   void startAccept();
