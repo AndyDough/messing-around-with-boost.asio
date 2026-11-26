@@ -1,4 +1,5 @@
 #include "TcpConnection.hpp"
+#include "Logger.hpp"
 #include "TcpServer.hpp"
 #include "checkError.hpp"
 #include "encode.hpp"
@@ -33,7 +34,13 @@ void TcpConnection::start() {
 void TcpConnection::handleReadMessageHeader(sPtrVectorUC readBuffer,
                                             const boost::system::error_code &ec,
                                             std::size_t bytesTransfered) {
-  checkError(ec);
+  checkError(
+      [self = shared_from_this(), server = m_server]() {
+        Logger log("serverError.txt");
+        log.log("Client as disconnted and gave eof error");
+        server->handleDisconnect(self);
+      },
+      ec);
   std::cout << readBuffer.get() << std::endl;
   // m_data: first 4 bytes length, next 4 bytes id, the rest datos
   MessageHeader header;

@@ -19,7 +19,7 @@ find_package(Boost REQUIRED COMPONENTS system)
 add_executable(BOOST_CLIENT Asyncsrc/client.cpp)
 target_link_libraries(BOOST_CLIENT PRIVATE Boost::asio Boost::system)
 
-add_executable(BOOST_SERVER Asyncsrc/server.cpp Asyncsrc/TcpServer.cpp Asyncsrc/TcpConnection.cpp
+add_executable(BOOST_SERVER Asyncsrc/server.cpp Asyncsrc/TcpServer.cpp Asyncsrc/TcpConnection.cpp Asyncsrc/Logger.cpp
     )
 target_link_libraries(BOOST_SERVER PRIVATE Boost::asio Boost::system)
 
