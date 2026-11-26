@@ -1,8 +1,11 @@
 #include "TcpClient.hpp"
+#include <SFML/Graphics.hpp>
+#include <SFML/Window/VideoMode.hpp>
+#include <TGUI/Backend/SFML-Graphics.hpp>
+#include <TGUI/TGUI.hpp>
 #include <exception>
 #include <functional>
 #include <iostream>
-#include <memory>
 #include <thread>
 
 void uiThread(TcpClient &client) {
@@ -24,6 +27,8 @@ void uiThread(TcpClient &client) {
   }
 }
 
+bool runTest(tgui::BackendGui &gui) { return true; }
+
 int main(int argc, char *argv[]) {
   try {
     if (argc != 2) {
@@ -32,6 +37,13 @@ int main(int argc, char *argv[]) {
     }
     std::string_view hostIP{argv[1]};
     boost::asio::io_context io_context;
+
+    sf::RenderWindow window{sf::VideoMode{{800, 600}}, "Test Window"};
+
+    tgui::Gui gui{window};
+    if (runTest(gui)) {
+      gui.mainLoop();
+    }
 
     // std::cout << "Before TcpClient is contructed\n";
     auto tcpClient = TcpClient::create(io_context, hostIP);
